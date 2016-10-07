@@ -6,8 +6,22 @@ module Expr =
     let rec eval state = function
     | Const  n -> n
     | Var    x -> state x
-    | Binop  _ -> failwith "not supported"
- 
+    | Binop  (op, x, y) ->
+       match op with
+       | "+" -> (eval state x) + (eval state y)
+       | "*" -> (eval state x) * (eval state y)
+       | "-" -> (eval state x) - (eval state y)
+       | "/" -> (eval state x) / (eval state y)
+       | "%" -> (eval state x) mod (eval state y)
+       | "<=" -> if (eval state x) <= (eval state y) then 1 else 0
+       | ">=" -> if (eval state x) >= (eval state y) then 1 else 0
+       | "<" -> if (eval state x) < (eval state y) then 1 else 0
+       | ">" -> if (eval state x) > (eval state y) then 1 else 0
+       | "==" -> if (eval state x) == (eval state y) then 1 else 0
+       | "!=" -> if (eval state x) != (eval state y) then 1 else 0
+       | "&&" -> if (eval state x) != 0 && (eval state y) != 0 then 1 else 0
+       | "!!" -> if (eval state x) != 0 || (eval state y) != 0 then 1 else 0
+                                   
   end
   
 module Stmt =
