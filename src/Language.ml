@@ -1,6 +1,27 @@
 open Ostap 
 open Matcher
 
+module BinOp =
+  struct
+
+    let perform_operation op =
+      match op with
+      | "+"  -> fun x y -> x + y
+      | "*"  -> fun x y -> x * y
+      | "-"  -> fun x y -> x - y
+      | "/"  -> fun x y -> x / y
+      | "%"  -> fun x y -> x mod y
+      | "<"  -> fun x y -> if x < y then 1 else 0
+      | "<=" -> fun x y -> if x <= y then 1 else 0
+      | ">"  -> fun x y -> if x > y then 1 else 0
+      | ">=" -> fun x y -> if x >= y then 1 else 0
+      | "==" -> fun x y -> if x == y then 1 else 0
+      | "!=" -> fun x y -> if x != y then 1 else 0
+      | "&&" -> fun x y -> if (x != 0) && (y != 0) then 1 else 0
+      | "!!" -> fun x y -> if (x != 0) || (y != 0) then 1 else 0
+    
+  end
+       
 module Expr =
   struct
 

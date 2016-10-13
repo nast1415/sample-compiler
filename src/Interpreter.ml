@@ -1,27 +1,15 @@
+
 module Expr =
   struct
 
     open Language.Expr
+    open Language.BinOp
 
     let rec eval state = function
     | Const  n -> n
     | Var    x -> state x
-    | Binop  (op, x, y) ->
-       match op with
-       | "+" -> (eval state x) + (eval state y)
-       | "*" -> (eval state x) * (eval state y)
-       | "-" -> (eval state x) - (eval state y)
-       | "/" -> (eval state x) / (eval state y)
-       | "%" -> (eval state x) mod (eval state y)
-       | "<=" -> if (eval state x) <= (eval state y) then 1 else 0
-       | ">=" -> if (eval state x) >= (eval state y) then 1 else 0
-       | "<" -> if (eval state x) < (eval state y) then 1 else 0
-       | ">" -> if (eval state x) > (eval state y) then 1 else 0
-       | "==" -> if (eval state x) == (eval state y) then 1 else 0
-       | "!=" -> if (eval state x) != (eval state y) then 1 else 0
-       | "&&" -> if (eval state x) != 0 && (eval state y) != 0 then 1 else 0
-       | "!!" -> if (eval state x) != 0 || (eval state y) != 0 then 1 else 0
-                                   
+    | Binop  (op, x, y) -> perform_operation op (eval state x) (eval state y)
+                      
   end
   
 module Stmt =

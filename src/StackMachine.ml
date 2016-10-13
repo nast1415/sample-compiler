@@ -9,6 +9,8 @@ type i =
 module Interpreter =
   struct
 
+    open Language.BinOp
+
     let run input code =
       let rec run' (state, stack, input, output) code =
 	match code with
@@ -30,46 +32,8 @@ module Interpreter =
 		  let y::stack' = stack in
 		  ((x, y)::state, stack', input, output)
               | S_BINOP op ->
-		 match op with
-                 | "+" ->
-                    let y::x::stack' = stack in
-                    (state, (x + y)::stack', input, output)
-                 | "-" ->
-                    let y::x::stack' = stack in
-                    (state, (x - y)::stack', input, output)
-                 | "*" ->
-                    let y::x::stack' = stack in
-                    (state, (x * y)::stack', input, output)
-                 | "/" ->
-                    let y::x::stack' = stack in
-                    (state, (x / y)::stack', input, output)
-                 | "%" ->
-                    let y::x::stack' = stack in
-                    (state, (x mod y)::stack', input, output)
-                 | "<=" ->
-                    let y::x::stack' = stack in
-                    (state, (if x <= y then 1 else 0)::stack', input, output)
-                 | ">=" ->
-                    let y::x::stack' = stack in
-                    (state, (if x >= y then 1 else 0)::stack', input, output)
-                 | "<" ->
-                    let y::x::stack' = stack in
-                    (state, (if x < y then 1 else 0)::stack', input, output)
-                 | ">" ->
-                    let y::x::stack' = stack in
-                    (state, (if x > y then 1 else 0)::stack', input, output)
-                 | "==" ->
-                    let y::x::stack' = stack in
-                    (state, (if x == y then 1 else 0)::stack', input, output)
-                 | "!=" ->
-                    let y::x::stack' = stack in
-                    (state, (if x != y then 1 else 0)::stack', input, output)
-                 | "&&" ->
-                    let y::x::stack' = stack in
-                    (state, (if x * y > 0 then 1 else 0)::stack', input, output)
-                 | "!!" ->
-                    let y::x::stack' = stack in
-                    (state, (if x + y > 0 then 1 else 0)::stack', input, output)
+		  let y::x::stack' = stack in
+                  (state, (perform_operation op x y)::stack', input, output)
               )
               code'
       in
@@ -86,26 +50,7 @@ module Compile =
     let rec expr = function
     | Var   x -> [S_LD   x]
     | Const n -> [S_PUSH n]
-    | Binop (op, x, y) ->
-       match op with
-       | "+" ->  expr x @ expr y @ [S_BINOP "+"]
-       | "-" ->  expr x @ expr y @ [S_BINOP "-"]
-       | "*" ->  expr x @ expr y @ [S_BINOP "*"]
-       | "/" ->  expr x @ expr y @ [S_BINOP "/"]
-       | "%" ->  expr x @ expr y @ expr x @ expr y @ [S_BINOP "/"; S_BINOP "*"; S_BINOP "-"]
-       | "<=" -> expr x @ expr y @ [S_BINOP "<="]
-       | ">=" -> expr x @ expr y @ [S_BINOP ">="]
-       | "<" ->  expr x @ expr y @ [S_BINOP "<"]
-       | ">" ->  expr x @ expr y @ [S_BINOP ">"]
-       | "==" -> expr x @ expr y @ [S_BINOP "=="]
-       | "!=" -> expr x @ expr y @ [S_BINOP "!="]
-       | "&&" ->
-          let const_zero = expr @@ Const 0 in
-          let const_two  = expr @@ Const 2 in
-          const_two @ const_zero @ expr x @ [S_BINOP "<"] @ const_zero @ expr y @ [S_BINOP "<"] @ [S_BINOP "+"] @ [S_BINOP "=="] (* check that 2 == (x > 0) + (y > 0)*)
-       | "!!" ->
-          let const_zero = expr @@ Const 0 in
-          const_zero @ const_zero @ expr x @ [S_BINOP "<"] @ const_zero @ expr y @ [S_BINOP "<"] @ [S_BINOP "+"] @ [S_BINOP "<"] (* check that 0 < (x > 0) + (y > 0)*)
+    | Binop (op, x, y) -> (expr x) @ (expr y) @ [S_BINOP op]
           
        
     let rec stmt = function
