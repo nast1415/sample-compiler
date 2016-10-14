@@ -32,10 +32,16 @@ module Expr =
 
     ostap (
       parse:
-        logic;
+        ori;
 
-      logic:
-        l:cmpi suf:(("!!" | "&&") cmpi)* {
+      ori:
+        l:andi suf:(("!!") andi)* {
+           List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
+        }
+      | andi;
+
+      andi:
+        l:cmpi suf:(("&&") cmpi)* {
            List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
         }
       | cmpi;
