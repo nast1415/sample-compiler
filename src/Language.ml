@@ -36,6 +36,7 @@ module Expr =
 
       ori:
         l:andi suf:(("!!") andi)* {
+
            List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
         }
       | andi;
@@ -68,6 +69,7 @@ module Expr =
         n:DECIMAL {Const n}
       | x:IDENT   {Var   x}
       | -"(" parse -")"
+*)
     )
 
   end
