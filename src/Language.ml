@@ -15,13 +15,13 @@ module BinOp =
       | "<=" -> fun x y -> if x <= y then 1 else 0
       | ">"  -> fun x y -> if x > y then 1 else 0
       | ">=" -> fun x y -> if x >= y then 1 else 0
-      | "==" -> fun x y -> if x == y then 1 else 0
-      | "!=" -> fun x y -> if x != y then 1 else 0
-      | "&&" -> fun x y -> if (x != 0) && (y != 0) then 1 else 0
-      | "!!" -> fun x y -> if (x != 0) || (y != 0) then 1 else 0
+      | "==" -> fun x y -> if x = y then 1 else 0
+      | "!=" -> fun x y -> if x <> y then 1 else 0
+      | "&&" -> fun x y -> if (x <> 0) && (y <> 0) then 1 else 0
+      | "!!" -> fun x y -> if (x <> 0) || (y <> 0) then 1 else 0
     
   end
-       
+
 module Expr =
   struct
 
@@ -47,7 +47,7 @@ module Expr =
       | cmpi;
 
       cmpi:
-        l:addi suf:(("<" | "<=" | ">" | ">=" | "==" | "!=") addi)* {
+        l:addi suf:(("<=" | "<" | ">=" | ">" | "==" | "!=") addi)* {
            List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
         }
       | addi;
