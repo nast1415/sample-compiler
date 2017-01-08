@@ -39,6 +39,9 @@ type instr =
 | X86Setge
 | X86Sete
 | X86Setne
+| X86Lbl    of string
+| X86Goto   of string
+| X86Ifgoto of string * string
 | X86Movzbl
 | X86Ret
 | X86Call of string
@@ -87,6 +90,10 @@ module Show =
     | X86Or  (s1, s2) -> Printf.sprintf "\torl\t%s,\t%s"   (opnd s1) (opnd s2)
     | X86And (s1, s2) -> Printf.sprintf "\tandl\t%s,\t%s"  (opnd s1) (opnd s2)
 
+    | X86Lbl s         -> Printf.sprintf "label%s:" s
+    | X86Goto s        -> Printf.sprintf "\tjmp\tlabel%s" s
+    | X86Ifgoto (e, s) -> Printf.sprintf "\tj%s\tlabel%s" e s
+
     | X86Setl         -> "\tsetl\t%al"
     | X86Setle        -> "\tsetle\t%al"
     | X86Setg         -> "\tsetg\t%al"
@@ -127,79 +134,89 @@ module Compile =
               | S_READ   -> ([R 2], [X86Call "read"; X86Mov (eax, R 2)])
               | S_WRITE  -> ([], [X86Push (R 2); X86Call "write"; X86Pop (R 2)])
               | S_PUSH n ->
-		  let s = allocate env stack in
-		  (s::stack, [X86Mov (L n, s)])
+		              let s = allocate env stack in
+		              (s::stack, [X86Mov (L n, s)])
               | S_LD x   ->
-		  env#local x;
-		  let s = allocate env stack in
-		  (s::stack, to_eax_edx (M x) s @@ fun x y -> [X86Mov (x, y)])
+            		  env#local x;
+            		  let s = allocate env stack in
+            		  (s::stack, to_eax_edx (M x) s @@ fun x y -> [X86Mov (x, y)])
               | S_ST x   ->
-		  env#local x;
-		  let s::stack' = stack in
-		  (stack', [X86Mov (s, M x)])
-	      | S_BINOP op ->
-                 match op with
-                 | "+" ->
+            		  env#local x;
+            		  let s::stack' = stack in
+            		  (stack', [X86Mov (s, M x)])
+              | S_LABEL lbl ->
+                  (stack, [X86Lbl lbl])
+              | S_GOTO lbl ->
+                  (stack, [X86Goto lbl])
+              | S_Ifgoto (e, lbl) ->
+                  let y::stack' = stack in
+                  (stack', [X86Cmp (L 0, y); X86Ifgoto (e, lbl)])
+	            | S_BINOP op ->
+                  match op with
+                  | "+" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> [X86Add (x, y); X86Mov (y, eax)])
-                 | "-" ->
+                  | "-" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> [X86Sub (x, y); X86Mov (y, eax)])
-                 | "*" ->
+                  | "*" ->
                     let x::y::stack' = stack in
                     (y::stack', save_regs [X86Mov (y, eax); X86Mul (x, eax); X86Mov (eax, y)])
-                 | "/" ->
+                  | "/" ->
                     let x::y::stack' = stack in
                     (y::stack', save_regs [X86Mov (y, eax); X86Cdq; X86Div (x, y); X86Mov (eax, y)])
-                 | "%" ->
+                  | "%" ->
                     let x::y::stack' = stack in
                     (y::stack', save_regs [X86Mov (y, eax); X86Cdq; X86Div (x, y); X86Mov (edx, y)])
-                 | "<" ->
+                  | "<" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Setl)
-                 | "<=" ->
+                  | "<=" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Setle)
-                 | ">" ->
+                  | ">" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Setg)
-                 | ">=" ->
+                  | ">=" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Setge)
-                 | "==" ->
+                  | "==" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Sete)
-                 | "!=" ->
+                  | "!=" ->
                     let x::y::stack' = stack in
                     (y::stack', to_eax_edx x y @@ fun x y -> compare x y X86Setne)
-                 | "&&" ->
+                  | "&&" ->
                     let x::y::stack' = stack in
                     (y::stack', save_regs [
-                                    (* Set eax value to null, mov x to edx, check that edx is not null
-                                       if it is true - in eax we now have not null 
-                                    *)
-                                    X86Xor (eax, eax);
-                                    X86Mov (x, edx);
-                                    X86Cmp (edx, eax);
-                                    X86Setne;
-                                    (* Mov y to edx and mul eax and edx (result in edx)
-                                       result of && is not null only if eax not null (x != 0) and edx not null (y != 0) *)
-                                    X86Mov (y, edx);
-                                    X86Mul (eax, edx);
-                                    X86Xor (eax, eax);
-                                    X86Cmp (edx, eax);
-                                    X86Setne;
-                                    X86Mov (eax, y)])
-                 | "!!" ->
+                      (* 
+                        Set eax value to null, mov x to edx, check that edx is not null
+                        if it is true - in eax we now have not null 
+                      *)
+                      X86Xor (eax, eax);
+                      X86Mov (x, edx);
+                      X86Cmp (edx, eax);
+                      X86Setne;
+                      (* 
+                        Mov y to edx and mul eax and edx (result in edx)
+                        result of && is not null only if eax not null (x != 0) and edx not null (y != 0) 
+                      *)
+                      X86Mov (y, edx);
+                      X86Mul (eax, edx);
+                      X86Xor (eax, eax);
+                      X86Cmp (edx, eax);
+                      X86Setne;
+                      X86Mov (eax, y)])
+                  | "!!" ->
                     let x::y::stack' = stack in
                     (y::stack', save_regs [
-                                    (* Set eax value to null, mov x to edx, check that or y, edx not null*)
-                                    X86Xor (eax, eax);
-                                    X86Mov (x, edx);
-                                    X86Or (y, edx);
-                                    X86Cmp (edx, eax);
-                                    X86Setne;
-                                    X86Mov (eax, y)])
+                      (* Set eax value to null, mov x to edx, check that or y, edx not null*)
+                      X86Xor (eax, eax);
+                      X86Mov (x, edx);
+                      X86Or (y, edx);
+                      X86Cmp (edx, eax);
+                      X86Setne;
+                      X86Mov (eax, y)])
                
 	    in
 	    x86code @ compile stack' code'
