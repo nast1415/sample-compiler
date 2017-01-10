@@ -5,7 +5,7 @@ let parse infile =
   Util.parse
     (object
        inherit Matcher.t s
-       inherit Util.Lexers.ident ["read"; "write"; "skip"; "if"; "fi"; "while"; "do"; "od"; "repeat"; "until"; "for"] s
+       inherit Util.Lexers.ident ["read"; "write"; "skip"; "if"; "fi"; "then"; "else"; "while"; "do"; "od"; "repeat"; "until"] s
        inherit Util.Lexers.decimal s
        inherit Util.Lexers.skip [
 	 Matcher.Skip.whitespaces " \t\n";

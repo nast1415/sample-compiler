@@ -94,17 +94,17 @@ module Stmt =
       };
       simple:
         x:IDENT ":=" e:!(Expr.parse)     {Assign (x, e)}
-      | %"read"  "(" x:IDENT ")"         {Read x}
+      | x:IDENT ":=" %"read" "()"        {Read x}
       | %"write" "(" e:!(Expr.parse) ")" {Write e}
       | %"skip"                          {Skip}
       | %"if"        e:!(Expr.parse)
-        %"then"      s1:parse
-        %"else"      s2:parse
+        %"then"      s1:!(parse)
+        %"else"      s2:!(parse)
         %"fi"                            {If (e, s1, s2)}
       | %"while"     e:!(Expr.parse)
-        %"do"        s:parse
+        %"do"        s:!(parse)
         %"od"                            {While (e, s)}
-      | %"repeat"    s:parse
+      | %"repeat"    s:!(parse)
         %"until"     e:!(Expr.parse)     {Repeat (s, e)}
            
            

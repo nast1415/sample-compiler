@@ -148,7 +148,7 @@ module Compile =
                   (stack, [X86Lbl lbl])
               | S_GOTO lbl ->
                   (stack, [X86Goto lbl])
-              | S_Ifgoto (e, lbl) ->
+              | S_IFGOTO (e, lbl) ->
                   let y::stack' = stack in
                   (stack', [X86Cmp (L 0, y); X86Ifgoto (e, lbl)])
 	            | S_BINOP op ->
