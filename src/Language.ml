@@ -68,6 +68,7 @@ module Expr =
         n:DECIMAL {Const n}
       | x:IDENT   {Var   x}
       | -"(" parse -")"
+*)
     )
 
   end
