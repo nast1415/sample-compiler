@@ -101,11 +101,17 @@ module Stmt =
         %"then"      s1:!(parse)
         %"else"      s2:!(parse)
         %"fi"                            {If (e, s1, s2)}
+      | %"if"        e:!(Expr.parse)
+        %"then"      s1:!(parse)
+        %"fi"                            {If (e, s1, Skip)}
       | %"while"     e:!(Expr.parse)
         %"do"        s:!(parse)
         %"od"                            {While (e, s)}
       | %"repeat"    s:!(parse)
-        %"until"     e:!(Expr.parse)     {Repeat (s, e)}
+        %"until"     e:!(Expr.parse)     {Seq (s, While (Binop ("==", e, Const 0), s))}
+      | %"for"       i:!(parse) "," n:!(Expr.parse) "," b:!(parse)
+        %"do"        a:!(parse)
+        %"od"                            {Seq (i, (While (n, Seq (a, b))))}
            
            
     )
