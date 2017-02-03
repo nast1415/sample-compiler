@@ -90,7 +90,6 @@ module Compile =
     | If     (e, s1, s2) ->
        let lbl1 = create_new_lbl () in
        let lbl2 = create_new_lbl () in
-       (*let lbl3 = create_new_lbl () in*)
        expr e
        @ [S_IFGOTO ("z", lbl1)]
        @ stmt s1
