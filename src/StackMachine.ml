@@ -90,13 +90,13 @@ module Compile =
     | If     (e, s1, s2) ->
        let lbl1 = create_new_lbl () in
        let lbl2 = create_new_lbl () in
-       let lbl3 = create_new_lbl () in
+       (*let lbl3 = create_new_lbl () in*)
        expr e
-       @ [S_IFGOTO ("z", lbl2); S_LABEL lbl1]
+       @ [S_IFGOTO ("z", lbl1)]
        @ stmt s1
-       @ [S_GOTO lbl3; S_LABEL lbl2]
+       @ [S_GOTO lbl2; S_LABEL lbl1]
        @ stmt s2
-       @ [S_LABEL lbl3]
+       @ [S_LABEL lbl2]
     | While   (e, s)     ->
        let lbl1 = create_new_lbl () in
        let lbl2 = create_new_lbl () in
