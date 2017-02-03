@@ -32,25 +32,25 @@ let dl = SR 2
 let dh = SR 3
 
 type instr =
-| X86Add  of opnd * opnd
-| X86Mul  of opnd * opnd
-| X86Sub  of opnd * opnd
-| X86Div  of opnd * opnd
-| X86Mod  of opnd * opnd
+| X86BinOpArithm of string * opnd * opnd
+| X86BinOpDivMod of opnd * opnd   
+| X86BinOpLogic  of string * opnd * opnd
+| X86BinOpComp   of string * opnd
+
 | X86Mov  of opnd * opnd
 | X86Cmp  of opnd * opnd
 | X86Xor  of opnd * opnd
-| X86Or   of opnd * opnd
-| X86And  of opnd * opnd
+
 | X86Push of opnd
 | X86Pop  of opnd
+
 | X86Cdq
+| X86Ret
+| X86Call of string
+
 | X86Lbl    of string
 | X86Goto   of string
 | X86Ifgoto of string * string
-| X86Set    of string * opnd
-| X86Ret
-| X86Call of string
 
 
 module S = Set.Make (String)
@@ -83,7 +83,7 @@ module Show =
     | M x  -> x
     | L i  -> Printf.sprintf "$%d" i
 
-    let comp op = match op with
+    let to_comp op = match op with
     | "<"  -> "l"
     | "<=" -> "le"
     | ">"  -> "g"
@@ -92,29 +92,40 @@ module Show =
     | "==" -> "e"
     | _    -> op
 
+    let to_arithm op = match op with
+    | "+"  -> "addl"
+    | "-"  -> "subl" 
+    | "*"  -> "imull"
+    | "&&" -> "andl"
+    | "!!" -> "orl"
+    | _    -> op
+
+    let to_logic op = match op with
+    | "&&" -> "andl"
+    | "!!" -> "orl"
+    | _    -> op
+
+
     let instr = function
-    | X86Add (s1, s2) -> Printf.sprintf "\taddl\t%s,\t%s"  (opnd s1) (opnd s2)
-    | X86Mul (s1, s2) -> Printf.sprintf "\timull\t%s,\t%s" (opnd s1) (opnd s2)
-    | X86Sub (s1, s2) -> Printf.sprintf "\tsubl\t%s,\t%s"  (opnd s1) (opnd s2)
-    | X86Div (s1, s2) -> Printf.sprintf "\tidivl\t%s"      (opnd s1)
+    | X86BinOpArithm (op, s1, s2) -> Printf.sprintf "\t%s\t%s,\t%s" (to_arithm op) (opnd s1) (opnd s2)
+    | X86BinOpDivMod (s1, s2)     -> Printf.sprintf "\tidivl\t%s"   (opnd s1)
+    | X86BinOpLogic  (op, s1, s2) -> Printf.sprintf "\t%s\t%s,\t%s" (to_logic op) (opnd s1) (opnd s2)
+    | X86BinOpComp   (op, s2)     -> Printf.sprintf "\tset%s\t%s"   (to_comp op)  (opnd s2)
 
     | X86Mov (s1, s2) -> Printf.sprintf "\tmovl\t%s,\t%s"  (opnd s1) (opnd s2)
     | X86Cmp (s1, s2) -> Printf.sprintf "\tcmp\t%s,\t%s"   (opnd s1) (opnd s2)
+    | X86Xor (s1, s2) -> Printf.sprintf "\txorl\t%s,\t%s"  (opnd s1) (opnd s2)
+
     | X86Push s       -> Printf.sprintf "\tpushl\t%s"      (opnd s )
     | X86Pop  s       -> Printf.sprintf "\tpopl\t%s"       (opnd s )
-
-    | X86Xor (s1, s2) -> Printf.sprintf "\txorl\t%s,\t%s"  (opnd s1) (opnd s2)
-    | X86Or  (s1, s2) -> Printf.sprintf "\torl\t%s,\t%s"   (opnd s1) (opnd s2)
-    | X86And (s1, s2) -> Printf.sprintf "\tandl\t%s,\t%s"  (opnd s1) (opnd s2)
-    | X86Set (s1, s2) -> Printf.sprintf "\tset%s\t%s"     (comp s1) (opnd s2)
-
-    | X86Lbl s         -> Printf.sprintf "label%s:" s
-    | X86Goto s        -> Printf.sprintf "\tjmp\tlabel%s" s
-    | X86Ifgoto (e, s) -> Printf.sprintf "\tj%s\tlabel%s" e s
 
     | X86Cdq          -> "\tcdq"
     | X86Ret          -> "\tret"
     | X86Call p       -> Printf.sprintf "\tcall\t%s" p
+
+    | X86Lbl s         -> Printf.sprintf "label%s:" s
+    | X86Goto s        -> Printf.sprintf "\tjmp\tlabel%s" s
+    | X86Ifgoto (e, s) -> Printf.sprintf "\tj%s\tlabel%s" e s
 
   end
     
@@ -124,12 +135,16 @@ module Compile =
 
     open StackMachine
 
+    let get_register op = match op with
+    | "/" -> eax
+    | "%" -> edx
+
     let stack_program env code =
       let rec compile stack code =
-	match code with
-	| []       -> []
-	| i::code' ->
-	    let (stack', x86code) =
+      	match code with
+      	| []       -> []
+      	| i::code' ->
+      	    let (stack', x86code) =
               match i with
               | S_READ   -> ([R 2], [X86Call "read"; X86Mov (eax, R 2)])
               | S_WRITE  -> ([], [X86Push (R 2); X86Call "write"; X86Pop (R 2)])
@@ -157,24 +172,15 @@ module Compile =
                   (stack', [X86Cmp (L 0, y); X86Ifgoto (e, lbl)])
 	            | S_BINOP op ->
                   match op with
-                  | "+" ->
+                  | "+" | "-" | "*" ->
                     let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, eax); X86Add (x, eax); X86Mov (eax, y)])
-                  | "-" ->
+                    (y::stack', [X86Mov (y, eax); X86BinOpArithm (op, x, eax); X86Mov (eax, y)])
+                  | "/" | "%" ->
                     let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, eax); X86Sub (x, eax); X86Mov (eax, y)])
-                  | "*" ->
-                    let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, eax); X86Mul (x, eax); X86Mov (eax, y)])
-                  | "/" ->
-                    let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, eax); X86Cdq; X86Div (x, y); X86Mov (eax, y)])
-                  | "%" ->
-                    let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, eax); X86Cdq; X86Div (x, y); X86Mov (edx, y)])
+                    (y::stack', [X86Mov (y, eax); X86Cdq; X86BinOpDivMod (x, y); X86Mov ((get_register op), y)])
                   | "<" | "<=" | ">" | ">=" | "!=" | "==" ->
                     let x::y::stack' = stack in
-                    (y::stack', [X86Mov (y, edx); X86Xor (eax, eax); X86Cmp (x, edx); X86Set (op, al); X86Mov (eax, y)])
+                    (y::stack', [X86Mov (y, edx); X86Xor (eax, eax); X86Cmp (x, edx); X86BinOpComp (op, al); X86Mov (eax, y)])
                   | "&&" ->
                     let x::y::stack' = stack in
                     (y::stack', [
@@ -185,16 +191,16 @@ module Compile =
                       X86Xor (eax, eax);
                       X86Mov (x, edx);
                       X86Cmp (edx, eax);
-                      X86Set ("ne", al);
+                      X86BinOpComp ("!=", al);
                       (* 
                         Mov y to edx and mul eax and edx (result in edx)
                         result of && is not null only if eax not null (x != 0) and edx not null (y != 0) 
                       *)
                       X86Mov (y, edx);
-                      X86Mul (eax, edx);
+                      X86BinOpArithm ("*", eax, edx);
                       X86Xor (eax, eax);
                       X86Cmp (edx, eax);
-                      X86Set ("ne", al);
+                      X86BinOpComp ("!=", al);
                       X86Mov (eax, y)])
                   | "!!" ->
                     let x::y::stack' = stack in
@@ -202,9 +208,9 @@ module Compile =
                       (* Set eax value to null, mov x to edx, check that or y, edx not null*)
                       X86Xor (eax, eax);
                       X86Mov (x, edx);
-                      X86Or (y, edx);
+                      X86BinOpLogic ("!!", y, edx);
                       X86Cmp (edx, eax);
-                      X86Set ("ne", al);
+                      X86BinOpComp ("!=", al);
                       X86Mov (eax, y)])
                
 	    in
